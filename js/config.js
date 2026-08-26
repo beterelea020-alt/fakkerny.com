@@ -24,6 +24,6 @@ export const APP_CONFIG = {
     // paste the "Public Key" value here; the private key goes ONLY in
     // Vercel's environment variables, never in this file.
     // Leave empty to keep the "reminders while closed" feature hidden/disabled.
-    vapidPublicKey: ''
+    vapidPublicKey: 'BBKw7CLHuXt7LKe2JIC72tpqUr1vYMcXr25DmtMUtnNfNvzwBPoTe0HyCpKIqF1EttusWNw58JFzpw2myBn2buU'
   }
 };
