@@ -1,0 +1,11 @@
+{
+  "name": "fakkerny",
+  "version": "1.0.0",
+  "private": true,
+  "description": "فكّرني — مساعدك الشخصي لتذكر يومك (PWA + push backend)",
+  "type": "module",
+  "dependencies": {
+    "@vercel/kv": "^2.0.0",
+    "web-push": "^3.6.7"
+  }
+}

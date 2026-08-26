@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>فَكّرني — مساعدك الشخصي لتذكر يومك</title>
+<meta name="description" content="بدل ما تحاول تفتكر كل حاجة، خلّي فكرني يفتكرها معاك. تطبيق شخصي بدون إنترنت وبدون حساب.">
+<meta name="theme-color" content="#5B6EF5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="فكرني">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="onboard-screen" class="onboard-screen hidden">
+  <div class="onboard-logo" aria-hidden="true">🧠</div>
+  <h1>فَكّرني</h1>
+  <p>بدل ما تحاول تفتكر كل حاجة، خلّي فكرني يفتكرها معاك — تذكيراتك، دوائك، فلوسك، وعاداتك في مكان واحد هادئ.</p>
+  <div class="privacy-note"><span aria-hidden="true">🔒</span> بياناتك محفوظة على جهازك فقط، ولا يتم إرسالها إلى أي خادم أبدًا.</div>
+  <button class="btn btn-primary" id="onboard-start">يلا نبدأ</button>
+</div>
+
+<div id="app">
+  <!-- Desktop sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-dot"></div>
+      <div class="brand-text">
+        <strong>فَكّرني</strong>
+        <span>يفتكرها معاك</span>
+      </div>
+    </div>
+
+    <button class="nav-item active" data-nav="dashboard" aria-label="الرئيسية"><span class="ic">🏠</span><span class="label">الرئيسية</span></button>
+    <button class="nav-item" data-nav="reminders" aria-label="التذكيرات"><span class="ic">⏰</span><span class="label">التذكيرات</span></button>
+    <button class="nav-item" data-nav="medicine" aria-label="الأدوية"><span class="ic">💊</span><span class="label">الأدوية</span></button>
+    <button class="nav-item" data-nav="money" aria-label="الفلوس"><span class="ic">💰</span><span class="label">الفلوس</span></button>
+    <button class="nav-item" data-nav="habits" aria-label="العادات"><span class="ic">🔁</span><span class="label">العادات</span></button>
+    <button class="nav-item" data-nav="notes" aria-label="الملاحظات"><span class="ic">📝</span><span class="label">الملاحظات</span></button>
+    <button class="nav-item" data-nav="calendar" aria-label="التقويم"><span class="ic">📅</span><span class="label">التقويم</span></button>
+    <button class="nav-item" data-nav="settings" aria-label="الإعدادات"><span class="ic">⚙️</span><span class="label">الإعدادات</span></button>
+
+    <button class="btn btn-primary btn-block desktop-add-btn" id="desktop-add-btn" aria-label="إضافة"><span class="add-ic">+</span><span class="label">إضافة</span></button>
+
+    <div class="sidebar-footer">
+      <button class="nav-item hidden" id="install-btn">⬇️ تثبيت التطبيق</button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <h1 id="topbar-title">فَكّرني</h1>
+      <button class="icon-btn" data-nav="settings" aria-label="الإعدادات">⚙️</button>
+    </div>
+
+    <main class="view-root" id="view-root"></main>
+  </div>
+</div>
+
+<!-- Floating add button (mobile) -->
+<button class="fab" id="fab-add" aria-label="إضافة">+</button>
+
+<!-- Bottom navigation (mobile) -->
+<nav class="bottom-nav">
+  <button class="bn-item active" data-nav="dashboard"><span class="ic" aria-hidden="true">🏠</span>الرئيسية</button>
+  <button class="bn-item" data-nav="reminders"><span class="ic" aria-hidden="true">⏰</span>التذكيرات</button>
+  <button class="bn-item" data-nav="habits"><span class="ic" aria-hidden="true">🔁</span>العادات</button>
+  <button class="bn-item" data-nav="money"><span class="ic" aria-hidden="true">💰</span>الفلوس</button>
+  <button class="bn-item" data-nav="more-menu" id="bn-more"><span class="ic" aria-hidden="true">⋯</span>المزيد</button>
+</nav>
+
+<div id="overlay-root"></div>
+<div id="toast-root"></div>
+
+<input type="file" id="import-file-input" accept="application/json" class="hidden">
+
+<script type="module" src="js/app.js"></script>
+<script>
+  // "More" sheet for mobile bottom nav (kept inline: purely presentational glue, no state).
+  document.getElementById('bn-more').addEventListener('click', () => {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">المزيد</div>
+        <div class="card" style="padding:4px 14px;margin-top:10px;">
+          <div class="list-row" data-nav="medicine" data-more="1" tabindex="0" role="button"><span class="item-emoji" aria-hidden="true">💊</span><div class="row-body"><div class="row-title">الأدوية</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+          <div class="list-row" data-nav="notes" data-more="1" tabindex="0" role="button"><span class="item-emoji" aria-hidden="true">📝</span><div class="row-body"><div class="row-title">الملاحظات</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+          <div class="list-row" data-nav="calendar" data-more="1" tabindex="0" role="button"><span class="item-emoji" aria-hidden="true">📅</span><div class="row-body"><div class="row-title">التقويم</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+          <div class="list-row" data-nav="settings" data-more="1" tabindex="0" role="button"><span class="item-emoji" aria-hidden="true">⚙️</span><div class="row-body"><div class="row-title">الإعدادات</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelectorAll('[data-more]').forEach((el) => el.addEventListener('click', () => overlay.remove()));
+    document.getElementById('overlay-root').appendChild(overlay);
+  });
+</script>
+</body>
+</html>

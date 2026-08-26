@@ -1,0 +1,98 @@
+// sw.js — app-shell caching for offline use, plus notification action routing.
+// No network calls to any backend happen here or anywhere in the app.
+
+const CACHE_NAME = 'fakkerny-v4';
+const APP_SHELL = [
+  './',
+  'index.html',
+  'manifest.json',
+  'css/style.css',
+  'js/app.js',
+  'js/config.js',
+  'js/core/theme-manager.js',
+  'js/storage/db.js',
+  'js/utils/date.js',
+  'js/utils/parse.js',
+  'js/features/notify.js',
+  'js/features/render.js',
+  'js/features/feedback.js',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+  'icons/apple-touch-icon.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return; // never touch cross-origin/network resources
+
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return res;
+        })
+        .catch(() => caches.match('index.html'));
+    })
+  );
+});
+
+// Fires when the backend's cron job sends a real push (see api/cron/check-due.js).
+// This is the ONLY code path that can wake the app when it's fully closed —
+// everything else in notify.js only works while a tab/instance is open.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { /* non-JSON payload, ignore */ }
+
+  const title = data.title || 'فَكّرني';
+  const options = {
+    body: data.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    dir: 'rtl',
+    lang: 'ar',
+    data: { kind: data.kind, id: data.id },
+    actions: data.kind === 'medicine'
+      ? [{ action: 'done', title: 'تم' }, { action: 'snooze10', title: 'أجّل 10 دقايق' }]
+      : []
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  const notification = event.notification;
+  const action = event.action; // '' | 'done' | 'snooze10'
+  const data = notification.data || {};
+  notification.close();
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
+      if (action) {
+        clientsArr.forEach((c) => c.postMessage({ type: 'notif-action', action, kind: data.kind, id: data.id }));
+      }
+      if (clientsArr.length > 0) {
+        return clientsArr[0].focus();
+      }
+      return self.clients.openWindow('./index.html');
+    })
+  );
+});
