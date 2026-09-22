@@ -5,6 +5,7 @@
   "description": "فكّرني — مساعدك الشخصي لتذكر يومك (PWA + push backend)",
   "type": "module",
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^2.0.0",
     "web-push": "^3.6.7"
   }
