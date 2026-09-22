@@ -81,6 +81,10 @@
 
 <script type="module" src="js/app.js"></script>
 <script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script>
   // "More" sheet for mobile bottom nav (kept inline: purely presentational glue, no state).
   document.getElementById('bn-more').addEventListener('click', () => {
     const overlay = document.createElement('div');
