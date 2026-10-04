@@ -1,5 +1,5 @@
-import { requireUser } from './lib/auth.js';
-import { getUsage } from './lib/limits.js';
+import { requireUser } from './_lib/auth.js';
+import { getUsage } from './_lib/limits.js';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);

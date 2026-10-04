@@ -1,6 +1,6 @@
-import { requireAdmin } from '../lib/auth.js';
-import { getUsage } from '../lib/limits.js';
-import { query } from '../lib/db.js';
+import { requireAdmin } from '../auth.js';
+import { getUsage } from '../limits.js';
+import { query } from '../db.js';
 
 export default async function handler(req, res) {
   const admin = await requireAdmin(req, res);

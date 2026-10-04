@@ -14,8 +14,8 @@
 // drain your push quota — Vercel Cron sends this automatically as a bearer
 // token when CRON_SECRET is set as an env var.
 
-import { allSubIds, getSubscription, getSchedule, saveSchedule, deleteSubscription } from '../lib/store.js';
-import { sendPush } from '../lib/push.js';
+import { allSubIds, getSubscription, getSchedule, saveSchedule, deleteSubscription } from '../_lib/store.js';
+import { sendPush } from '../_lib/push.js';
 
 export default async function handler(req, res) {
   if (process.env.CRON_SECRET) {

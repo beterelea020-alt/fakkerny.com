@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { requireAdmin } from '../lib/auth.js';
-import { execute, query } from '../lib/db.js';
+import { requireAdmin } from '../auth.js';
+import { execute, query } from '../db.js';
 
 const ACTIONS = new Set(['suspend', 'activate', 'make-admin', 'remove-admin', 'delete-data']);
 

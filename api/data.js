@@ -1,6 +1,6 @@
-import { execute, query } from './lib/db.js';
-import { requireUser } from './lib/auth.js';
-import { assertCanStoreState, LIMITS } from './lib/limits.js';
+import { execute, query } from './_lib/db.js';
+import { requireUser } from './_lib/auth.js';
+import { assertCanStoreState, LIMITS } from './_lib/limits.js';
 
 function isValidState(state) {
   return state && typeof state === 'object' && state.data && typeof state.data === 'object';

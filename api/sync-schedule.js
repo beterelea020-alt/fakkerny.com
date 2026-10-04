@@ -9,7 +9,7 @@
 //
 // A hard cap keeps one misbehaving client from writing an unbounded payload.
 
-import { saveSchedule } from './lib/store.js';
+import { saveSchedule } from './_lib/store.js';
 
 const MAX_ITEMS = 200;
 

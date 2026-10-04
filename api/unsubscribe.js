@@ -2,7 +2,7 @@
 // schedule from KV entirely. Called when the user turns the feature off, so
 // nothing of theirs is left sitting on the server.
 
-import { deleteSubscription } from './lib/store.js';
+import { deleteSubscription } from './_lib/store.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });

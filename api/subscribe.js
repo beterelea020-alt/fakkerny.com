@@ -3,7 +3,7 @@
 // in Settings. Returns the subId so the client can reference it later when
 // syncing its schedule or unsubscribing.
 
-import { subIdFor, saveSubscription } from './lib/store.js';
+import { subIdFor, saveSubscription } from './_lib/store.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
