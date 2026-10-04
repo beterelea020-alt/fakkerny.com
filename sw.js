@@ -1,7 +1,7 @@
 // sw.js — app-shell caching for offline use, plus notification action routing.
 // No network calls to any backend happen here or anywhere in the app.
 
-const CACHE_NAME = 'fakkerny-v4';
+const CACHE_NAME = 'fakkerny-v5';
 const APP_SHELL = [
   './',
   'index.html',
@@ -16,6 +16,8 @@ const APP_SHELL = [
   'js/features/notify.js',
   'js/features/render.js',
   'js/features/feedback.js',
+  'js/features/cloud.js',
+  'js/features/push-sync.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
@@ -36,21 +38,34 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Network-first (so new deployments show up right away), cache as the offline fallback.
+// /api/* is never cached: accounts, sync and health must always hit the server.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return; // never touch cross-origin/network resources
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
+    new Promise((resolve) => {
+      let settled = false;
+      const fromCache = () => caches.match(event.request).then((c) => c || caches.match('index.html'));
+      const timer = setTimeout(() => {
+        fromCache().then((c) => { if (c && !settled) { settled = true; resolve(c); } });
+      }, 4000);
+      fetch(event.request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return res;
+          clearTimeout(timer);
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          if (!settled) { settled = true; resolve(res); }
         })
-        .catch(() => caches.match('index.html'));
+        .catch(() => {
+          clearTimeout(timer);
+          fromCache().then((c) => { if (!settled) { settled = true; resolve(c || Response.error()); } });
+        });
     })
   );
 });
