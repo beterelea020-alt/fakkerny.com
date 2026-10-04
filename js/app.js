@@ -470,32 +470,103 @@ function openItemDetail(kind, id) {
 function showAuthSheet(mode = 'login') {
   const isRegister = mode === 'register';
   const overlay = openSheet(`
-    <div class="sheet-title">${isRegister ? 'إنشاء حساب جديد' : 'تسجيل الدخول'}</div>
-    <div class="sheet-sub">${isRegister ? 'الحساب يضيف مزامنة سحابية مع الحفاظ على استخدام فكّرني أوفلاين.' : 'ادخل حسابك لاسترجاع بياناتك ومزامنتها بين أجهزتك.'}</div>
-    <form id="auth-form" autocomplete="on">
-      <div class="field"><label>البريد الإلكتروني</label><input type="email" id="auth-email" autocomplete="email" required placeholder="you@example.com"></div>
-      <div class="field"><label>كلمة المرور</label><input type="password" id="auth-password" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required minlength="8" placeholder="8 أحرف على الأقل"></div>
-      ${isRegister ? '<div class="desc" style="margin-bottom:10px;">مفيش دفع، ومفيش اشتراك. ده حساب مجاني بحدود حماية للاستخدام.</div>' : ''}
-      <div id="auth-error" class="auth-error hidden"></div>
-      <div class="sheet-actions">
-        <button type="button" class="btn btn-ghost" data-action="close-sheet">إلغاء</button>
-        <button type="submit" class="btn btn-primary btn-block">${isRegister ? 'إنشاء الحساب' : 'دخول'}</button>
+    <div class="auth-wrap">
+      <button type="button" class="auth-close" data-action="close-sheet" aria-label="إغلاق">✕</button>
+
+      <div class="auth-hero">
+        <div class="auth-badge">${isRegister ? '☁️' : '🔐'}</div>
+        <h2 class="auth-title">${isRegister ? 'أنشئ حسابك' : 'أهلًا بيك تاني'}</h2>
+        <p class="auth-sub">${isRegister
+          ? 'احفظ بياناتك على السحابة وافتحها من أي جهاز، وفكّرني يفضل شغال أوفلاين.'
+          : 'ادخل حسابك لاسترجاع بياناتك ومزامنتها بين أجهزتك.'}</p>
       </div>
-    </form>
-    <button type="button" class="link-btn" id="auth-switch">${isRegister ? 'عندي حساب بالفعل' : 'إنشاء حساب جديد'}</button>
+
+      ${isRegister ? `
+        <div class="auth-perks">
+          <span>☁️ مزامنة بين الأجهزة</span>
+          <span>📴 شغال أوفلاين</span>
+          <span>🆓 مجاني</span>
+        </div>` : ''}
+
+      <form id="auth-form" class="auth-form" autocomplete="on">
+        <div class="auth-field">
+          <label for="auth-email">البريد الإلكتروني</label>
+          <div class="auth-input">
+            <span class="auth-ic">✉️</span>
+            <input type="email" id="auth-email" dir="ltr" inputmode="email" autocomplete="email" required placeholder="you@example.com">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="auth-password">كلمة المرور</label>
+          <div class="auth-input">
+            <span class="auth-ic">🔒</span>
+            <input type="password" id="auth-password" dir="ltr" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required minlength="8" placeholder="••••••••">
+            <button type="button" class="auth-eye" id="auth-eye" aria-label="إظهار كلمة المرور">إظهار</button>
+          </div>
+          ${isRegister ? `
+            <div class="auth-meter" id="auth-meter" data-level="0"><i></i><i></i><i></i></div>
+            <div class="auth-hint" id="auth-hint">8 أحرف على الأقل</div>` : ''}
+        </div>
+
+        <div id="auth-error" class="auth-error hidden" role="alert"></div>
+
+        <button type="submit" class="auth-submit">${isRegister ? 'إنشاء الحساب' : 'تسجيل الدخول'}</button>
+      </form>
+
+      <div class="auth-switch">
+        ${isRegister ? 'عندك حساب؟' : 'لسه معندكش حساب؟'}
+        <button type="button" id="auth-switch">${isRegister ? 'سجّل دخول' : 'أنشئ حساب'}</button>
+      </div>
+      ${isRegister ? '<div class="auth-note">مجاني بالكامل · من غير دفع ولا اشتراك</div>' : ''}
+    </div>
   `);
+
   const form = overlay.querySelector('#auth-form');
   const error = overlay.querySelector('#auth-error');
+  const emailInput = overlay.querySelector('#auth-email');
+  const passInput = overlay.querySelector('#auth-password');
+  const eye = overlay.querySelector('#auth-eye');
+  const submit = form.querySelector('button[type="submit"]');
+  const idleLabel = submit.textContent;
+
   overlay.querySelector('#auth-switch').addEventListener('click', () => {
     showAuthSheet(isRegister ? 'login' : 'register');
   });
+
+  eye.addEventListener('click', () => {
+    const show = passInput.type === 'password';
+    passInput.type = show ? 'text' : 'password';
+    eye.textContent = show ? 'إخفاء' : 'إظهار';
+    eye.setAttribute('aria-label', show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+  });
+
+  if (isRegister) {
+    const meter = overlay.querySelector('#auth-meter');
+    const hint = overlay.querySelector('#auth-hint');
+    const labels = ['8 أحرف على الأقل', 'ضعيفة', 'كويسة', 'قوية'];
+    passInput.addEventListener('input', () => {
+      const v = passInput.value;
+      let level = 0;
+      if (v.length >= 8) {
+        level = 1;
+        if (v.length >= 10 && /[A-Za-z]/.test(v) && /\d/.test(v)) level = 2;
+        if (v.length >= 12 && /[A-Z]/.test(v) && /[a-z]/.test(v) && /\d/.test(v) && /[^A-Za-z0-9]/.test(v)) level = 3;
+      }
+      meter.dataset.level = String(level);
+      hint.textContent = labels[level];
+    });
+  }
+
+  setTimeout(() => emailInput.focus(), 120);
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     error.classList.add('hidden');
-    const email = overlay.querySelector('#auth-email').value.trim();
-    const password = overlay.querySelector('#auth-password').value;
-    const submit = form.querySelector('button[type="submit"]');
+    const email = emailInput.value.trim();
+    const password = passInput.value;
     submit.disabled = true;
+    submit.textContent = isRegister ? 'جارٍ إنشاء الحساب…' : 'جارٍ الدخول…';
     try {
       if (isRegister) await Cloud.register(email, password);
       else await Cloud.login(email, password);
@@ -507,6 +578,7 @@ function showAuthSheet(mode = 'login') {
       error.textContent = err.message || 'حصل خطأ، جرّب تاني';
       error.classList.remove('hidden');
       submit.disabled = false;
+      submit.textContent = idleLabel;
     }
   });
 }
