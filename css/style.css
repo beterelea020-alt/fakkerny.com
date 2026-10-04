@@ -1000,3 +1000,60 @@ a { color: inherit; }
   .sidebar { width: var(--sidebar-w-lg); padding: 32px 22px; }
   .view-root { padding: 36px 44px 70px; max-width: 920px; }
 }
+
+/* ==========================================================================
+   Cloud account + Admin
+   ========================================================================== */
+.account-section { overflow: hidden; }
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 0 14px;
+}
+.account-guest { align-items: flex-start; }
+.account-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--primary-soft);
+  flex-shrink: 0;
+  font-size: 21px;
+}
+.account-main { min-width: 0; flex: 1; }
+.account-main .row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.ok { background: var(--success); box-shadow: 0 0 0 4px rgba(53,183,121,.12); }
+.status-dot.bad { background: var(--danger); box-shadow: 0 0 0 4px rgba(228,91,102,.12); }
+.account-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-actions .btn { min-height: 42px; }
+.usage-box { margin-top: 14px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px solid var(--border); }
+.usage-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+.usage-head strong { color: var(--text); font-size: 12px; }
+.usage-track { height: 8px; border-radius: 999px; overflow: hidden; background: var(--primary-soft); margin-top: 9px; }
+.usage-track span { display: block; height: 100%; border-radius: inherit; background: var(--gradient-accent); }
+.usage-meta { margin-top: 7px; font-size: 11px; color: var(--text-secondary); }
+.auth-error { margin: 8px 0; padding: 10px 12px; border-radius: 12px; color: var(--danger); background: var(--pill-danger-bg); font-size: 12px; line-height: 1.6; }
+.link-btn { border: 0; background: none; color: var(--primary-on-tint); padding: 10px 0 2px; cursor: pointer; font-weight: 700; font-size: 13px; }
+.conflict-choice { padding: 14px; border: 1px solid var(--border); border-radius: 15px; margin-bottom: 9px; cursor: pointer; background: var(--card); transition: border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+.conflict-choice:hover { border-color: var(--primary); transform: translateY(-1px); }
+.conflict-choice strong { display: block; margin-bottom: 3px; }
+.conflict-choice span { display: block; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.admin-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+.metric-card { padding: 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.metric-card span, .metric-card small { display: block; color: var(--text-secondary); font-size: 11px; }
+.metric-card strong { display: block; margin: 5px 0 1px; font-size: 22px; }
+.admin-user-row, .admin-feedback-row { display: flex; gap: 10px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.admin-user-row:last-child, .admin-feedback-row:last-child { border-bottom: 0; }
+.admin-user-main, .admin-feedback-main { flex: 1; min-width: 0; }
+.admin-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.mini-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 10px; padding: 7px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.mini-btn.danger { color: var(--danger-on-tint); }
+.feedback-text { margin-top: 8px; font-size: 12px; line-height: 1.7; color: var(--text-secondary); white-space: pre-wrap; }
+.admin-note { color: var(--text-secondary); font-size: 12px; line-height: 1.7; margin-top: 14px; }
+@media (max-width: 560px) {
+  .admin-user-row, .admin-feedback-row { flex-direction: column; }
+  .admin-actions { justify-content: flex-start; }
+}

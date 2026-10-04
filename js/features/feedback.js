@@ -1,8 +1,8 @@
-// features/feedback.js — everything about sending feedback to the developer
-// goes through here, so the three feedback buttons (bug/feature/review) in
-// Settings and About never build a wa.me URL themselves.
+// Feedback is still sent to WhatsApp for convenience, and logged in Turso
+// when the visitor is signed in so the admin panel can track reports.
 
 import { APP_CONFIG } from '../config.js';
+import { getCurrentUser } from './cloud.js';
 
 const MESSAGES = {
   bug: 'مرحبًا، واجهت مشكلة في فكّرني وأريد الإبلاغ عنها.',
@@ -15,10 +15,18 @@ function buildWhatsAppUrl(message) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
-// kind: 'bug' | 'feature' | 'review'
-export function openFeedback(kind) {
+export async function openFeedback(kind) {
   try {
     const message = MESSAGES[kind] || MESSAGES.review;
+    const user = getCurrentUser();
+    if (user) {
+      fetch('/api/feedback', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, message })
+      }).catch(() => {});
+    }
     const url = buildWhatsAppUrl(message);
     window.open(url, '_blank', 'noopener');
     return true;

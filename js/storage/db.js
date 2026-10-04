@@ -1,5 +1,6 @@
-// storage/db.js — Local persistence layer. Nothing here ever talks to a network.
-// Everything the app remembers lives in localStorage, namespaced under "fk:".
+// storage/db.js — Local/offline persistence layer.
+// The browser copy stays local first. Cloud Sync observes the change event
+// emitted here and mirrors the data to Turso when the user is signed in.
 
 const NS = 'fk:';
 const KEYS = {
@@ -7,10 +8,10 @@ const KEYS = {
   medicine: NS + 'medicine',
   money: NS + 'money',
   habits: NS + 'habits',
-  habitLogs: NS + 'habit_logs', // { [habitId]: { [yyyy-mm-dd]: true } }
+  habitLogs: NS + 'habit_logs',
   notes: NS + 'notes',
   settings: NS + 'settings',
-  trash: NS + 'trash' // short-lived undo buffer, not persisted across reload intentionally-ish
+  trash: NS + 'trash'
 };
 
 function uid() {
@@ -28,9 +29,10 @@ function read(key, fallback) {
   }
 }
 
-function write(key, value) {
+function write(key, value, { notify = true } = {}) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    if (notify) notifyChanged();
     return true;
   } catch (e) {
     console.error('fk:db write error', key, e);
@@ -38,7 +40,22 @@ function write(key, value) {
   }
 }
 
-// Generic collection factory --------------------------------------------
+let suppressChangeEvents = false;
+
+function notifyChanged() {
+  if (suppressChangeEvents || typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('fakkerny:data-changed'));
+}
+
+export function withoutChangeNotification(fn) {
+  suppressChangeEvents = true;
+  try {
+    return fn();
+  } finally {
+    suppressChangeEvents = false;
+  }
+}
+
 function makeCollection(key) {
   return {
     all() {
@@ -87,7 +104,6 @@ export const Money = makeCollection(KEYS.money);
 export const Habits = makeCollection(KEYS.habits);
 export const Notes = makeCollection(KEYS.notes);
 
-// Habit completion logs ---------------------------------------------------
 export const HabitLogs = {
   all() {
     return read(KEYS.habitLogs, {});
@@ -99,11 +115,8 @@ export const HabitLogs = {
   toggle(habitId, dateStr) {
     const logs = this.all();
     if (!logs[habitId]) logs[habitId] = {};
-    if (logs[habitId][dateStr]) {
-      delete logs[habitId][dateStr];
-    } else {
-      logs[habitId][dateStr] = true;
-    }
+    if (logs[habitId][dateStr]) delete logs[habitId][dateStr];
+    else logs[habitId][dateStr] = true;
     write(KEYS.habitLogs, logs);
     return !!logs[habitId][dateStr];
   },
@@ -113,13 +126,13 @@ export const HabitLogs = {
   }
 };
 
-// Settings ------------------------------------------------------------------
 const DEFAULT_SETTINGS = {
-  theme: 'system', // 'light' | 'dark' | 'system'
-  themePreset: 'default', // 'default' | 'ocean' | 'lavender' | 'forest' | 'sunset' | 'rose' | 'slate' | 'custom'
-  themeCustomColor: null, // hex string, only meaningful when themePreset === 'custom'
+  theme: 'system',
+  themePreset: 'default',
+  themeCustomColor: null,
   notificationsEnabled: false,
   notificationSound: true,
+  pushSyncEnabled: false,
   lang: 'ar',
   onboarded: false
 };
@@ -135,11 +148,10 @@ export const Settings = {
   }
 };
 
-// Export / Import / Wipe -----------------------------------------------------
 export function exportAllData() {
   return {
     app: 'fakkerny',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     data: {
       reminders: Reminders.all(),
@@ -158,18 +170,24 @@ export function importAllData(payload) {
     throw new Error('ملف غير صالح');
   }
   const d = payload.data;
-  if (Array.isArray(d.reminders)) Reminders.replaceAll(d.reminders);
-  if (Array.isArray(d.medicine)) Medicine.replaceAll(d.medicine);
-  if (Array.isArray(d.money)) Money.replaceAll(d.money);
-  if (Array.isArray(d.habits)) Habits.replaceAll(d.habits);
-  if (Array.isArray(d.notes)) Notes.replaceAll(d.notes);
-  if (d.habitLogs && typeof d.habitLogs === 'object') write(KEYS.habitLogs, d.habitLogs);
-  if (d.settings && typeof d.settings === 'object') Settings.set(d.settings);
+  withoutChangeNotification(() => {
+    if (Array.isArray(d.reminders)) Reminders.replaceAll(d.reminders);
+    if (Array.isArray(d.medicine)) Medicine.replaceAll(d.medicine);
+    if (Array.isArray(d.money)) Money.replaceAll(d.money);
+    if (Array.isArray(d.habits)) Habits.replaceAll(d.habits);
+    if (Array.isArray(d.notes)) Notes.replaceAll(d.notes);
+    if (d.habitLogs && typeof d.habitLogs === 'object') write(KEYS.habitLogs, d.habitLogs, { notify: false });
+    if (d.settings && typeof d.settings === 'object') Settings.set(d.settings);
+  });
+  notifyChanged();
   return true;
 }
 
 export function wipeAllData() {
-  Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+  withoutChangeNotification(() => {
+    Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+  });
+  notifyChanged();
 }
 
 export { uid };

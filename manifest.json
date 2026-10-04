@@ -1,7 +1,7 @@
 {
   "name": "فَكّرني — مساعدك الشخصي لتذكر يومك",
   "short_name": "فكرني",
-  "description": "مساعدك الشخصي لتذكر أهم تفاصيل يومك. بياناتك تبقى على جهازك فقط.",
+  "description": "مساعدك الشخصي لتذكر تفاصيل يومك، يعمل أوفلاين مع مزامنة سحابية اختيارية بين أجهزتك.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -10,7 +10,11 @@
   "theme_color": "#5B6EF5",
   "lang": "ar",
   "dir": "rtl",
-  "categories": ["productivity", "lifestyle", "health"],
+  "categories": [
+    "productivity",
+    "lifestyle",
+    "health"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",

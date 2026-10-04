@@ -1,23 +1,6 @@
-// api/lib/store.js — persistence layer for push data, backed by Vercel KV
-// (Redis-compatible). This is the ONLY server-side data store in the whole
-// project, and it deliberately holds the minimum needed to fire a
-// notification: a push subscription + a list of {when, title, body}. It does
-// NOT store medicine names, money amounts, notes, or anything else — that
-// stays exactly where it always has, in the user's own localStorage.
-//
-// Requires the "Vercel KV" integration to be added to the project (Vercel
-// dashboard → Storage → Create Database → KV). Vercel injects the KV_* env
-// vars automatically once it's connected — nothing to configure by hand.
+// Push storage, backed by the same Turso database as the application.
+import { execute, query } from './db.js';
 
-import { kv } from '@vercel/kv';
-
-const SUB_PREFIX = 'sub:';       // sub:<subId>        -> { subscription, createdAt }
-const SCHEDULE_PREFIX = 'sched:'; // sched:<subId>       -> [ { id, kind, title, body, dueAt, sentAt, recurring } ]
-const INDEX_KEY = 'sub-index';    // Set of all known subIds, so the cron job doesn't have to KEYS-scan.
-
-// Deterministic id from a subscription's endpoint URL — same device/browser
-// always maps to the same key, so re-subscribing just overwrites cleanly
-// instead of piling up duplicates.
 export async function subIdFor(endpoint) {
   const enc = new TextEncoder().encode(endpoint);
   const digest = await crypto.subtle.digest('SHA-256', enc);
@@ -25,32 +8,37 @@ export async function subIdFor(endpoint) {
 }
 
 export async function saveSubscription(subId, subscription) {
-  await kv.set(SUB_PREFIX + subId, { subscription, createdAt: Date.now() });
-  await kv.sadd(INDEX_KEY, subId);
+  await execute(
+    'INSERT INTO push_subscriptions (sub_id, subscription_json, created_at) VALUES (?, ?, ?) ON CONFLICT(sub_id) DO UPDATE SET subscription_json = excluded.subscription_json',
+    [subId, JSON.stringify(subscription), Date.now()]
+  );
 }
 
 export async function deleteSubscription(subId) {
-  await kv.del(SUB_PREFIX + subId);
-  await kv.del(SCHEDULE_PREFIX + subId);
-  await kv.srem(INDEX_KEY, subId);
+  await execute('DELETE FROM push_schedules WHERE sub_id = ?', [subId]);
+  await execute('DELETE FROM push_subscriptions WHERE sub_id = ?', [subId]);
 }
 
 export async function getSubscription(subId) {
-  const rec = await kv.get(SUB_PREFIX + subId);
-  return rec ? rec.subscription : null;
+  const rows = await query('SELECT subscription_json FROM push_subscriptions WHERE sub_id = ?', [subId]);
+  if (!rows[0]) return null;
+  try { return JSON.parse(rows[0].subscription_json); } catch { return null; }
 }
 
 export async function saveSchedule(subId, items) {
-  // items is the full, replace-in-one-shot list the client currently has
-  // due in the future — simplest possible sync model, no incremental diffs
-  // to get out of sync with.
-  await kv.set(SCHEDULE_PREFIX + subId, items);
+  await execute(
+    'INSERT INTO push_schedules (sub_id, schedule_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(sub_id) DO UPDATE SET schedule_json = excluded.schedule_json, updated_at = excluded.updated_at',
+    [subId, JSON.stringify(items), Date.now()]
+  );
 }
 
 export async function getSchedule(subId) {
-  return (await kv.get(SCHEDULE_PREFIX + subId)) || [];
+  const rows = await query('SELECT schedule_json FROM push_schedules WHERE sub_id = ?', [subId]);
+  if (!rows[0]) return [];
+  try { return JSON.parse(rows[0].schedule_json) || []; } catch { return []; }
 }
 
 export async function allSubIds() {
-  return (await kv.smembers(INDEX_KEY)) || [];
+  const rows = await query('SELECT sub_id FROM push_subscriptions');
+  return rows.map((r) => String(r.sub_id));
 }

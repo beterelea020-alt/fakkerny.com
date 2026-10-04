@@ -6,6 +6,7 @@ import {
 } from '../utils/date.js';
 import { PRESETS } from '../core/theme-manager.js';
 import { APP_CONFIG } from '../config.js';
+import * as Cloud from './cloud.js';
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
@@ -362,6 +363,9 @@ export function renderCalendar(year, month, selectedDate) {
 
 export function renderSettings() {
   const s = Settings.get();
+  const cloud = Cloud.getCloudState();
+  const user = cloud.user;
+  const usage = cloud.usage;
   const notifSupported = 'Notification' in window;
   const activePreset = s.themePreset || 'default';
 
@@ -374,8 +378,42 @@ export function renderSettings() {
     </button>`).join('');
 
   const customHex = activePreset === 'custom' && s.themeCustomColor ? s.themeCustomColor : null;
+  const accountHtml = user ? `
+      <div class="account-card">
+        <div class="account-avatar">${user.role === 'admin' ? '🛡️' : '👤'}</div>
+        <div class="account-main">
+          <div class="row-title">${esc(user.email)}</div>
+          <div class="row-meta">${user.role === 'admin' ? 'مدير النظام' : 'حساب عادي'} · ${user.status === 'active' ? 'نشط' : 'موقوف'}</div>
+        </div>
+        <span class="status-dot ${user.status === 'active' ? 'ok' : 'bad'}"></span>
+      </div>
+      <div class="account-actions">
+        <button type="button" class="btn btn-ghost" data-action="sync-now">☁️ مزامنة الآن</button>
+        <button type="button" class="btn btn-ghost" data-action="logout">تسجيل الخروج</button>
+        ${user.role === 'admin' ? `<button type="button" class="btn btn-primary" data-action="open-admin">🛡️ لوحة الإدارة</button>` : ''}
+      </div>
+      ${usage ? `
+        <div class="usage-box">
+          <div class="usage-head"><span>استخدام تخزين التطبيق</span><strong>${usage.dataPercent.toFixed(2)}%</strong></div>
+          <div class="usage-track"><span style="width:${Math.max(1, usage.dataPercent)}%"></span></div>
+          <div class="usage-meta">${formatBytes(usage.dataBytes)} من ${formatBytes(usage.limits.maxTotalStateBytes)} · ${usage.users}/${usage.limits.maxUsers} حساب</div>
+        </div>` : ''}` : `
+      <div class="account-card account-guest">
+        <div class="account-avatar">☁️</div>
+        <div class="account-main">
+          <div class="row-title">استخدم فكّرني بحسابك</div>
+          <div class="row-meta">بياناتك تفضل أوفلاين، والحساب يضيف نسخًا سحابية ومزامنة بين الأجهزة.</div>
+        </div>
+      </div>
+      <div class="account-actions">
+        <button type="button" class="btn btn-primary" data-action="open-login">تسجيل الدخول</button>
+        <button type="button" class="btn btn-ghost" data-action="open-register">إنشاء حساب</button>
+      </div>`;
 
   return `
+    <div class="settings-group-title">الحساب والمزامنة</div>
+    <div class="card account-section" style="padding:16px;">${accountHtml}</div>
+
     <div class="settings-group-title">المظهر</div>
     <div class="card" style="padding:16px;">
       <div class="lbl" style="margin-bottom:8px;">الوضع</div>
@@ -409,7 +447,7 @@ export function renderSettings() {
       </div>
       ${APP_CONFIG.push && APP_CONFIG.push.vapidPublicKey ? `
       <div class="switch-row">
-        <div><div class="lbl">تذكيرات حتى لو التطبيق مقفول (Beta)</div><div class="desc">بيبعت وقت وعنوان التذكير فقط لسيرفرنا عشان يوصّلك الإشعار حتى لو التطبيق مش فاتح. اقرأ خصوصيتك تحت.</div></div>
+        <div><div class="lbl">تذكيرات حتى لو التطبيق مقفول (Beta)</div><div class="desc">بيبعت وقت وعنوان التذكير فقط لسيرفرنا عشان يوصّلك الإشعار حتى لو التطبيق مش فاتح.</div></div>
         <button class="switch ${s.pushSyncEnabled ? 'on' : ''}" data-action="toggle-push-sync"></button>
       </div>` : ''}
     </div>
@@ -417,8 +455,8 @@ export function renderSettings() {
     <div class="settings-group-title">خصوصيتك</div>
     <div class="card" style="padding:16px;">
       <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;">
-        بياناتك (الأدوية، الفلوس، الملاحظات، العادات) محفوظة على جهازك فقط ولا تتحرك منه أبدًا. فكرني تطبيق بدون إنترنت وبدون حساب.
-        ${APP_CONFIG.push && APP_CONFIG.push.vapidPublicKey ? 'الاستثناء الوحيد: لو فعّلت "تذكيرات حتى لو التطبيق مقفول" فوق، بيتبعت لسيرفرنا وقت وعنوان التذكير بس (مش الأدوية أو الفلوس أو الملاحظات) عشان يقدر يوصّلك إشعار — وده اختياري بالكامل وتقدر تقفله في أي وقت.' : ''}
+        من غير حساب، بياناتك تعيش على جهازك فقط. مع الحساب، نسخة البيانات تنتقل مشفّرة عبر HTTPS إلى قاعدة بيانات Turso من خلال API السيرفر، مع صلاحيات تمنع مستخدمًا من قراءة بيانات مستخدم آخر.
+        تقدر تسجّل خروج وتكمّل أوفلاين في أي وقت.
       </p>
     </div>
 
@@ -433,9 +471,9 @@ export function renderSettings() {
     <div class="card" style="padding:16px 14px 14px;">
       <div class="desc" style="line-height:1.7;">فكّرني بيتطور مع مستخدميه. كل فكرة أو ملاحظة بتساعدنا نخليه أفضل.</div>
       <div class="help-actions">
-        <div class="list-row" data-action="feedback-bug" role="button" tabindex="0" aria-label="بلغ عن مشكلة عبر واتساب"><span class="item-emoji" aria-hidden="true">🐞</span><div class="row-body"><div class="row-title">بلغ عن مشكلة</div></div><span class="chevron" aria-hidden="true">‹</span></div>
-        <div class="list-row" data-action="feedback-feature" role="button" tabindex="0" aria-label="اقترح ميزة عبر واتساب"><span class="item-emoji" aria-hidden="true">💡</span><div class="row-body"><div class="row-title">اقترح ميزة</div></div><span class="chevron" aria-hidden="true">‹</span></div>
-        <div class="list-row" data-action="feedback-review" role="button" tabindex="0" aria-label="شارك رأيك عبر واتساب"><span class="item-emoji" aria-hidden="true">💬</span><div class="row-body"><div class="row-title">شارك رأيك</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+        <div class="list-row" data-action="feedback-bug" role="button" tabindex="0" aria-label="بلغ عن مشكلة"><span class="item-emoji" aria-hidden="true">🐞</span><div class="row-body"><div class="row-title">بلغ عن مشكلة</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+        <div class="list-row" data-action="feedback-feature" role="button" tabindex="0" aria-label="اقترح ميزة"><span class="item-emoji" aria-hidden="true">💡</span><div class="row-body"><div class="row-title">اقترح ميزة</div></div><span class="chevron" aria-hidden="true">‹</span></div>
+        <div class="list-row" data-action="feedback-review" role="button" tabindex="0" aria-label="شارك رأيك"><span class="item-emoji" aria-hidden="true">💬</span><div class="row-body"><div class="row-title">شارك رأيك</div></div><span class="chevron" aria-hidden="true">‹</span></div>
       </div>
     </div>
 
@@ -443,6 +481,54 @@ export function renderSettings() {
     <div class="card" style="padding:4px 14px;">
       <div class="list-row" data-nav="about" role="button" tabindex="0" aria-label="عن فكّرني، القصة والمطور"><span class="item-emoji" aria-hidden="true">🧠</span><div class="row-body"><div class="row-title">عن فكّرني</div><div class="row-meta">القصة، المطور، وتواصل معايا</div></div><span class="chevron" aria-hidden="true">‹</span></div>
     </div>
+  `;
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export function renderAdmin(snapshot = null) {
+  const data = snapshot || {};
+  const stats = data.stats || {};
+  const users = data.users || [];
+  const feedback = data.feedback || [];
+  return `
+    <div class="section-head"><div><div class="section-title">لوحة الإدارة</div><div class="desc">إدارة الحسابات، الحالات، والتقارير والاستخدام.</div></div><button class="btn btn-ghost" data-action="admin-refresh">↻ تحديث</button></div>
+    <div class="admin-metrics">
+      <div class="metric-card"><span>الحسابات</span><strong>${Number(stats.users || 0)}</strong><small>${Number(stats.activeUsers || 0)} نشط</small></div>
+      <div class="metric-card"><span>المديرين</span><strong>${Number(stats.admins || 0)}</strong><small>${Number(stats.activeSessions || 0)} جلسة نشطة</small></div>
+      <div class="metric-card"><span>تخزين البيانات</span><strong>${formatBytes(stats.dataBytes || 0)}</strong><small>${Number(stats.dataPercent || 0).toFixed(2)}% من الحد الآمن</small></div>
+      <div class="metric-card"><span>البلاغات</span><strong>${Number(stats.feedbackCount || 0)}</strong><small>${feedback.filter((x) => x.status === 'open').length} مفتوح</small></div>
+    </div>
+
+    <div class="settings-group-title">المستخدمون</div>
+    <div class="card admin-list" style="padding:4px 14px;">
+      ${users.length ? users.map((u) => `
+        <div class="admin-user-row">
+          <div class="admin-user-main"><div class="row-title">${esc(u.email)}</div><div class="row-meta">${u.role === 'admin' ? 'مدير' : 'مستخدم'} · ${u.status === 'active' ? 'نشط' : 'موقوف'} · ${formatBytes(u.dataBytes)}</div></div>
+          <div class="admin-actions">
+            ${u.status === 'active' ? `<button class="mini-btn danger" data-action="admin-user-action" data-user-id="${esc(u.id)}" data-admin-action="suspend">إيقاف</button>` : `<button class="mini-btn" data-action="admin-user-action" data-user-id="${esc(u.id)}" data-admin-action="activate">تفعيل</button>`}
+            ${u.role === 'admin' ? `<button class="mini-btn" data-action="admin-user-action" data-user-id="${esc(u.id)}" data-admin-action="remove-admin">إزالة مدير</button>` : `<button class="mini-btn" data-action="admin-user-action" data-user-id="${esc(u.id)}" data-admin-action="make-admin">جعله مدير</button>`}
+            <button class="mini-btn danger" data-action="admin-user-action" data-user-id="${esc(u.id)}" data-admin-action="delete-data">مسح بياناته</button>
+          </div>
+        </div>`).join('') : '<div class="empty-state"><span class="emoji">👥</span><div class="msg">مفيش مستخدمين</div></div>'}
+    </div>
+
+    <div class="settings-group-title">البلاغات والاقتراحات</div>
+    <div class="card admin-list" style="padding:4px 14px;">
+      ${feedback.length ? feedback.map((f) => `
+        <div class="admin-feedback-row">
+          <div class="admin-feedback-main"><div class="row-title">${esc(f.email)} · ${esc(f.kind)}</div><div class="row-meta">${new Date(f.createdAt).toLocaleString('ar-EG')} · ${f.status === 'open' ? 'مفتوح' : 'مغلق'}</div><div class="feedback-text">${esc(f.message)}</div></div>
+          ${f.status === 'open' ? `<button class="mini-btn" data-action="admin-feedback-close" data-feedback-id="${esc(f.id)}">إغلاق</button>` : ''}
+        </div>`).join('') : '<div class="empty-state"><span class="emoji">📭</span><div class="msg">مفيش بلاغات</div></div>'}
+    </div>
+
+    <div class="card admin-note" style="padding:16px;">⚠️ حدود مجانية داخلية للحماية: ${Number(stats.limits?.maxUsers || 0)} حساب، ${formatBytes(stats.limits?.maxTotalStateBytes || 0)} بيانات تطبيق. ده احتياطي فوق حدود Turso نفسها عشان ما نستنزفش المجاني فجأة.</div>
   `;
 }
 

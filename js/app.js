@@ -7,6 +7,7 @@ import { applyThemeColor, setPreset, setCustomColor, resetTheme } from './core/t
 import * as PushSync from './features/push-sync.js';
 import { APP_CONFIG } from './config.js';
 import * as R from './features/render.js';
+import * as Cloud from './features/cloud.js';
 
 /* ------------------------------------------------------------------------ */
 /* State                                                                     */
@@ -29,13 +30,14 @@ const state = {
 const NAV_TITLES = {
   dashboard: 'فَكّرني', reminders: 'التذكيرات', medicine: 'الأدوية', money: 'الفلوس',
   habits: 'العادات', notes: 'الملاحظات', calendar: 'التقويم', settings: 'الإعدادات',
-  about: 'عن فكّرني'
+  about: 'عن فكّرني', admin: 'لوحة الإدارة'
 };
 
 const $viewRoot = document.getElementById('view-root');
 const $topbarTitle = document.getElementById('topbar-title');
 const $toastRoot = document.getElementById('toast-root');
 const $overlayRoot = document.getElementById('overlay-root');
+let adminSnapshot = null;
 
 /* ------------------------------------------------------------------------ */
 /* Rendering / routing                                                       */
@@ -53,6 +55,7 @@ function render() {
     case 'calendar': html = R.renderCalendar(state.calYear, state.calMonth, state.calSelected); break;
     case 'settings': html = R.renderSettings(); break;
     case 'about': html = R.renderAbout(); break;
+    case 'admin': html = R.renderAdmin(adminSnapshot); break;
     default: html = R.renderDashboard();
   }
   $viewRoot.innerHTML = html;
@@ -92,6 +95,7 @@ function setView(view) {
   state.noteSearch = '';
   window.scrollTo({ top: 0 });
   render();
+  if (view === 'admin') refreshAdmin();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -458,6 +462,125 @@ function openItemDetail(kind, id) {
   });
 }
 
+
+/* ------------------------------------------------------------------------ */
+/* Account / cloud / admin                                                    */
+/* ------------------------------------------------------------------------ */
+
+function showAuthSheet(mode = 'login') {
+  const isRegister = mode === 'register';
+  const overlay = openSheet(`
+    <div class="sheet-title">${isRegister ? 'إنشاء حساب جديد' : 'تسجيل الدخول'}</div>
+    <div class="sheet-sub">${isRegister ? 'الحساب يضيف مزامنة سحابية مع الحفاظ على استخدام فكّرني أوفلاين.' : 'ادخل حسابك لاسترجاع بياناتك ومزامنتها بين أجهزتك.'}</div>
+    <form id="auth-form" autocomplete="on">
+      <div class="field"><label>البريد الإلكتروني</label><input type="email" id="auth-email" autocomplete="email" required placeholder="you@example.com"></div>
+      <div class="field"><label>كلمة المرور</label><input type="password" id="auth-password" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required minlength="8" placeholder="8 أحرف على الأقل"></div>
+      ${isRegister ? '<div class="desc" style="margin-bottom:10px;">مفيش دفع، ومفيش اشتراك. ده حساب مجاني بحدود حماية للاستخدام.</div>' : ''}
+      <div id="auth-error" class="auth-error hidden"></div>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-ghost" data-action="close-sheet">إلغاء</button>
+        <button type="submit" class="btn btn-primary btn-block">${isRegister ? 'إنشاء الحساب' : 'دخول'}</button>
+      </div>
+    </form>
+    <button type="button" class="link-btn" id="auth-switch">${isRegister ? 'عندي حساب بالفعل' : 'إنشاء حساب جديد'}</button>
+  `);
+  const form = overlay.querySelector('#auth-form');
+  const error = overlay.querySelector('#auth-error');
+  overlay.querySelector('#auth-switch').addEventListener('click', () => {
+    showAuthSheet(isRegister ? 'login' : 'register');
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    error.classList.add('hidden');
+    const email = overlay.querySelector('#auth-email').value.trim();
+    const password = overlay.querySelector('#auth-password').value;
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    try {
+      if (isRegister) await Cloud.register(email, password);
+      else await Cloud.login(email, password);
+      closeSheet();
+      await afterAuth();
+      toast(isRegister ? 'الحساب اتعمل بنجاح ✅' : 'تم تسجيل الدخول ✅');
+      render();
+    } catch (err) {
+      error.textContent = err.message || 'حصل خطأ، جرّب تاني';
+      error.classList.remove('hidden');
+      submit.disabled = false;
+    }
+  });
+}
+
+async function afterAuth() {
+  try {
+    const result = await Cloud.reconcileWithCloud({
+      onConflict: (remote, local) => {
+        showCloudConflict(remote, local);
+        return { action: 'conflict' };
+      }
+    });
+    if (result.action === 'uploaded_local') toast('اترفعت بيانات جهازك للحساب ☁️');
+    if (result.action === 'downloaded_cloud') toast('اترجعت بياناتك من السحابة ☁️');
+    await Cloud.loadUsage();
+  } catch (e) {
+    toast(e.message || 'تعذر تجهيز المزامنة');
+  }
+}
+
+function showCloudConflict(remote, local) {
+  const overlay = openSheet(`
+    <div class="sheet-title">لقيت نسختين من بياناتك</div>
+    <div class="sheet-sub">بيانات الجهاز ونسخة السحابة الاتنين اتغيروا. اختار النسخة اللي تحب تحتفظ بيها.</div>
+    <div class="conflict-choice" data-choice="local"><strong>📱 بيانات الجهاز</strong><span>ترفع آخر نسخة موجودة على الجهاز للحساب.</span></div>
+    <div class="conflict-choice" data-choice="cloud"><strong>☁️ النسخة السحابية</strong><span>تستبدل بيانات الجهاز بالنسخة المحفوظة على السحابة.</span></div>
+    <div class="sheet-actions"><button type="button" class="btn btn-ghost" data-action="close-sheet">إلغاء</button></div>
+  `);
+  overlay.querySelectorAll('[data-choice]').forEach((el) => {
+    el.addEventListener('click', async () => {
+      try {
+        if (el.dataset.choice === 'local') await Cloud.syncNow({ silent: true });
+        else await Cloud.applyRemoteState(remote);
+        closeSheet();
+        render();
+        toast('تم حل التعارض ✅');
+      } catch (e) {
+        toast(e.message || 'تعذر حفظ الاختيار');
+      }
+    });
+  });
+}
+
+async function refreshAdmin() {
+  if (!Cloud.getCurrentUser() || Cloud.getCurrentUser().role !== 'admin') {
+    setView('settings');
+    return;
+  }
+  try {
+    const [stats, users, feedback] = await Promise.all([Cloud.adminStats(), Cloud.adminUsers(), Cloud.adminFeedback()]);
+    adminSnapshot = { stats, users: users.users || [], feedback: feedback.feedback || [] };
+    render();
+  } catch (e) {
+    toast(e.message || 'تعذر تحميل لوحة الإدارة');
+    setView('settings');
+  }
+}
+
+async function refreshAdminFromAction() {
+  await refreshAdmin();
+}
+
+window.addEventListener('fakkerny:toast', (e) => {
+  if (e.detail?.message) toast(e.detail.message);
+});
+
+window.addEventListener('fakkerny:auth-changed', () => {
+  render();
+});
+
+window.addEventListener('fakkerny:cloud-conflict', (e) => {
+  showCloudConflict(e.detail.remote, e.detail.local);
+});
+
 /* ------------------------------------------------------------------------ */
 /* Global event delegation                                                   */
 /* ------------------------------------------------------------------------ */
@@ -568,6 +691,30 @@ document.addEventListener('click', (e) => {
       } else {
         PushSync.disable().then(render);
       }
+      break;
+    }
+    case 'open-login': showAuthSheet('login'); break;
+    case 'open-register': showAuthSheet('register'); break;
+    case 'logout': {
+      Cloud.logout().then(() => { adminSnapshot = null; render(); toast('تم تسجيل الخروج'); }).catch((e) => toast(e.message || 'تعذر تسجيل الخروج'));
+      break;
+    }
+    case 'sync-now': {
+      Cloud.syncNow().then(async () => { await Cloud.loadUsage(); render(); }).catch(() => {});
+      break;
+    }
+    case 'open-admin': setView('admin'); break;
+    case 'admin-refresh': refreshAdminFromAction(); break;
+    case 'admin-user-action': {
+      const userId = actionEl.dataset.userId;
+      const adminAction = actionEl.dataset.adminAction;
+      const labels = { suspend: 'إيقاف الحساب', activate: 'تفعيل الحساب', 'make-admin': 'تعيين كمدير', 'remove-admin': 'إزالة صلاحية المدير', 'delete-data': 'مسح بيانات المستخدم' };
+      if (!window.confirm(`${labels[adminAction] || 'تنفيذ الإجراء'}؟`)) break;
+      Cloud.adminAction(adminAction, userId).then(() => { toast('تم تنفيذ الإجراء'); return refreshAdminFromAction(); }).catch((e) => toast(e.message || 'تعذر تنفيذ الإجراء'));
+      break;
+    }
+    case 'admin-feedback-close': {
+      Cloud.adminFeedbackAction(actionEl.dataset.feedbackId, 'closed').then(() => refreshAdminFromAction()).catch((e) => toast(e.message || 'تعذر تحديث البلاغ'));
       break;
     }
     case 'export-data': doExport(); break;
@@ -747,6 +894,7 @@ function boot() {
   maybeShowOnboarding();
   render();
   initNotifications(handleInAppNotification);
+  Cloud.initCloud().then(() => render());
 
   document.getElementById('fab-add').addEventListener('click', () => openAddSheet('reminder'));
   document.getElementById('desktop-add-btn').addEventListener('click', () => openAddSheet('reminder'));

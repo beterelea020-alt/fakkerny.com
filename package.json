@@ -2,10 +2,13 @@
   "name": "fakkerny",
   "version": "1.0.0",
   "private": true,
-  "description": "فكّرني — مساعدك الشخصي لتذكر يومك (PWA + push backend)",
+  "description": "فكّرني — مساعدك الشخصي لتذكر يومك (PWA + Turso backend + account sync)",
   "type": "module",
   "dependencies": {
-    "@vercel/kv": "^2.0.0",
     "web-push": "^3.6.7"
+  },
+  "scripts": {
+    "make-admin": "node scripts/make-admin.mjs",
+    "check": "node --check js/app.js"
   }
 }
